@@ -78,9 +78,14 @@ target_link_libraries(udp_receiver "${typesupport_target}")
 target_include_directories(udp_receiver PRIVATE ${OPENFEC_INCLUDE})
 target_compile_definitions(udp_receiver PRIVATE ${OPENFEC_DEFINITIONS})
 
-# Install
+# Install executables
 install(TARGETS tcp_sender tcp_receiver udp_sender udp_receiver
   DESTINATION lib/${PROJECT_NAME}
+)
+
+# Install launch files
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch
 )
 
 ament_package()

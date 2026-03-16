@@ -1,0 +1,35 @@
+# Example topic configuration for nimbro_topic_transport (ROS2)
+#
+# Usage with launch file:
+#   ros2 launch nimbro_topic_transport udp_sender.launch.py \
+#       target:=remote_host config:=<path_to_this_file>
+#
+# Usage with ros2 run:
+#   ros2 run nimbro_topic_transport udp_sender --ros-args \
+#       --params-file <path_to_this_file>
+#
+# The topic_* arrays are parallel: index 0 in each array describes the
+# first topic, index 1 the second, etc.
+
+udp_sender:
+  ros__parameters:
+    destination_addr: "localhost"
+    destination_port: 17001
+
+    topic_names:
+      - "/my_first_topic"
+      - "/my_second_topic"
+
+    topic_types:
+      - "std_msgs/msg/String"
+      - "sensor_msgs/msg/Image"
+
+    # Enable bz2 compression per topic
+    topic_compress:
+      - true
+      - false
+
+    # Rate limit per topic (0.0 = unlimited)
+    topic_rates:
+      - 1.0
+      - 0.0
