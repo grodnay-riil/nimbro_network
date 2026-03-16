@@ -39,8 +39,47 @@ ament_target_dependencies(tcp_receiver rclcpp)
 target_link_libraries(tcp_receiver ${BZ2_LIBRARY})
 target_link_libraries(tcp_receiver "${typesupport_target}")
 
+# Optional: OpenFEC for forward error correction
+set(DEFAULT_OPENFEC_PATH /opt/openfec_v1.4.2)
+set(OPENFEC_PATH "" CACHE PATH "Path to OpenFEC (optional)")
+if(NOT OPENFEC_PATH AND IS_DIRECTORY ${DEFAULT_OPENFEC_PATH})
+  set(OPENFEC_PATH ${DEFAULT_OPENFEC_PATH})
+endif()
+if(OPENFEC_PATH)
+  set(OPENFEC_INCLUDE ${OPENFEC_PATH}/src/lib_common)
+  set(OPENFEC_LIBRARY ${OPENFEC_PATH}/bin/Release/libopenfec.so)
+  set(OPENFEC_DEFINITIONS -DWITH_OPENFEC=1)
+  message(STATUS "Found and using OpenFEC at: ${OPENFEC_PATH}")
+else()
+  set(OPENFEC_INCLUDE "")
+  set(OPENFEC_LIBRARY "")
+  set(OPENFEC_DEFINITIONS "")
+endif()
+
+# UDP sender
+add_executable(udp_sender
+  src/udp/udp_sender.cpp
+  src/udp/topic_sender.cpp
+)
+ament_target_dependencies(udp_sender rclcpp)
+target_link_libraries(udp_sender ${BZ2_LIBRARY} ${OPENFEC_LIBRARY})
+target_link_libraries(udp_sender "${typesupport_target}")
+target_include_directories(udp_sender PRIVATE ${OPENFEC_INCLUDE})
+target_compile_definitions(udp_sender PRIVATE ${OPENFEC_DEFINITIONS})
+
+# UDP receiver
+add_executable(udp_receiver
+  src/udp/udp_receiver.cpp
+  src/udp/topic_receiver.cpp
+)
+ament_target_dependencies(udp_receiver rclcpp)
+target_link_libraries(udp_receiver ${BZ2_LIBRARY} ${OPENFEC_LIBRARY})
+target_link_libraries(udp_receiver "${typesupport_target}")
+target_include_directories(udp_receiver PRIVATE ${OPENFEC_INCLUDE})
+target_compile_definitions(udp_receiver PRIVATE ${OPENFEC_DEFINITIONS})
+
 # Install
-install(TARGETS tcp_sender tcp_receiver
+install(TARGETS tcp_sender tcp_receiver udp_sender udp_receiver
   DESTINATION lib/${PROJECT_NAME}
 )
 
