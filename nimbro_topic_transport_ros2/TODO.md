@@ -12,4 +12,4 @@
 
 5. **Runtime enable/disable per topic**: The ROS1 version used `config_server` to toggle individual topics on/off at runtime without restarting the node. ROS2 equivalent: use dynamic parameter callbacks (`add_on_set_parameters_callback`) with a `topic_enable` parameter array, or expose a service per topic.
 
-6. **Action proxy**: Forward ROS2 actions (goal/result/feedback) over nimbro. See detailed notes below.
+6. **Action proxy**: Forward ROS2 actions (goal/result/feedback) over nimbro. ROS2 actions use 3 services + 2 topics under the hood, so this requires bidirectional service forwarding. Best to implement alongside the `nimbro_service_transport` ROS2 migration — the service proxy infrastructure is a prerequisite for action forwarding.
