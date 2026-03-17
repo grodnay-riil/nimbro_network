@@ -23,19 +23,20 @@ class VerifyNode(Node):
         self.duration = duration
         self.scenario_name = scenario_name
         self.start_time = None
+        self.wall_start = time.time()  # for no-message timeout
         self.msg_count = 0
-        self.first_seq = None
-        self.last_seq = None
+        self.seq_numbers = []
         self.valid_payload = True
         self.expected_payload = '0123456789' * 100
+        self._done = False
 
         # Noise leak detection
         self.noise_received = 0
 
-        # Stats from nimbro
-        self.last_receiver_stats = None
+        # Stats from nimbro — collect multiple samples
+        self.receiver_stats_samples = []
 
-        # Subscribe to main topic (default RELIABLE QoS matches nimbro's publisher)
+        # Subscribe to main topic (RELIABLE — matches nimbro receiver's QoS)
         self.main_sub = self.create_subscription(
             String, '/main_chatter', self.main_callback, 10)
 
@@ -52,7 +53,6 @@ class VerifyNode(Node):
                 self.receiver_stats_callback, 10)
         except Exception:
             self.get_logger().warn('Could not subscribe to ReceiverStats')
-            self.stats_sub = None
 
         # Timer to check if we're done
         self.check_timer = self.create_timer(0.5, self.check_done)
@@ -72,14 +72,10 @@ class VerifyNode(Node):
         if len(parts) == 2:
             try:
                 seq = int(parts[0])
+                self.seq_numbers.append(seq)
             except ValueError:
-                return
+                pass
             payload = parts[1]
-
-            if self.first_seq is None:
-                self.first_seq = seq
-            self.last_seq = seq
-
             if payload != self.expected_payload:
                 self.valid_payload = False
 
@@ -87,14 +83,18 @@ class VerifyNode(Node):
         self.noise_received += 1
 
     def receiver_stats_callback(self, msg):
-        self.last_receiver_stats = {
+        self.receiver_stats_samples.append({
             'bandwidth': msg.bandwidth,
             'drop_rate': msg.drop_rate,
             'protocol': msg.protocol,
-        }
+        })
 
     def check_done(self):
+        # No-message timeout: if 20s pass with no messages, give up
         if self.start_time is None:
+            if time.time() - self.wall_start > 20.0:
+                self.get_logger().warn('No messages received after 20s, giving up')
+                self.finish()
             return
 
         elapsed = time.time() - self.start_time
@@ -102,25 +102,52 @@ class VerifyNode(Node):
             self.finish()
 
     def finish(self):
+        if self._done:
+            return
+        self._done = True
+
         elapsed = time.time() - self.start_time if self.start_time else 0
         rate = self.msg_count / elapsed if elapsed > 0 else 0
 
-        seq_expected = (self.last_seq - self.first_seq + 1) if (
-            self.first_seq is not None and self.last_seq is not None) else 0
-        seq_loss = max(0, seq_expected - self.msg_count) if seq_expected > 0 else 0
-        msg_loss_pct = (seq_loss / seq_expected * 100) if seq_expected > 0 else 0
+        # Calculate loss from sequence numbers
+        if len(self.seq_numbers) >= 2:
+            # Sequences should be monotonically increasing
+            # Count how many are missing in the range we received
+            min_seq = min(self.seq_numbers)
+            max_seq = max(self.seq_numbers)
+            expected_count = max_seq - min_seq + 1
+            # But rate limiting means sender skips sequences, so
+            # actual loss = received unique seqs vs expected unique seqs
+            unique_seqs = len(set(self.seq_numbers))
+            seq_loss_pct = max(0.0, (1.0 - unique_seqs / expected_count) * 100) if expected_count > 0 else 0.0
+        else:
+            expected_count = 0
+            unique_seqs = len(self.seq_numbers)
+            seq_loss_pct = 0.0
+
+        # Use the last few stats samples (skip first which may be stale)
+        stats = None
+        if len(self.receiver_stats_samples) >= 2:
+            # Average the last 3 samples
+            recent = self.receiver_stats_samples[-3:]
+            stats = {
+                'bandwidth': sum(s['bandwidth'] for s in recent) / len(recent),
+                'drop_rate': sum(s['drop_rate'] for s in recent) / len(recent),
+                'protocol': recent[-1]['protocol'],
+            }
+        elif self.receiver_stats_samples:
+            stats = self.receiver_stats_samples[-1]
 
         result = {
             'scenario': self.scenario_name,
             'duration_sec': round(elapsed, 1),
             'msg_count': self.msg_count,
+            'unique_seqs': unique_seqs,
             'rate_hz': round(rate, 1),
-            'first_seq': self.first_seq,
-            'last_seq': self.last_seq,
-            'msg_loss_pct': round(msg_loss_pct, 2),
+            'seq_loss_pct': round(seq_loss_pct, 2),
             'payload_valid': self.valid_payload,
             'noise_leaked': self.noise_received,
-            'receiver_stats': self.last_receiver_stats,
+            'receiver_stats': stats,
             'pass': self.msg_count > 0 and self.noise_received == 0 and self.valid_payload,
         }
 
@@ -134,9 +161,6 @@ class VerifyNode(Node):
 
         self.get_logger().info(f'Results written to {out_path}')
 
-        # Signal done
-        self._done = True
-
 
 def main():
     rclpy.init()
@@ -145,7 +169,6 @@ def main():
     scenario = sys.argv[2] if len(sys.argv) > 2 else 'unknown'
 
     node = VerifyNode(duration=duration, scenario_name=scenario)
-    node._done = False
 
     try:
         while rclpy.ok() and not node._done:

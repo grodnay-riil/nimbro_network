@@ -3,7 +3,7 @@
 # Must be run from the test/ directory (where docker-compose.yml lives).
 set -e
 
-DURATION=15  # seconds per scenario (10s measurement + warmup)
+DURATION=15  # seconds per scenario measurement window
 RESULTS_DIR=/tmp/ntt_results
 
 rm -rf "$RESULTS_DIR"
@@ -14,23 +14,40 @@ echo "=== Building test images ==="
 docker compose build
 
 echo "=== Starting containers ==="
+docker compose down 2>/dev/null || true
 docker compose up -d
 
 # Wait for containers to be ready
 sleep 3
 
-# Helper: run a command in a container
-talker() { docker exec ntt_talker bash -c "source /ros2_ws/install/setup.bash && $*"; }
-listener() { docker exec ntt_listener bash -c "source /ros2_ws/install/setup.bash && $*"; }
+# Helper: nuke all processes except PID 1 (sleep infinity) and our bash
+kill_all_in() {
+    local container=$1
+    # Kill every process except PID 1
+    docker exec "$container" bash -c '
+        for pid in $(ps -eo pid= | tr -d " "); do
+            [ "$pid" = "1" ] && continue
+            [ "$pid" = "$$" ] && continue
+            kill -9 "$pid" 2>/dev/null || true
+        done
+    ' 2>/dev/null || true
+}
 
-# Helper: kill all ROS processes in both containers
 cleanup() {
     echo "  Cleaning up..."
-    docker exec ntt_talker bash -c "pkill -f 'ros2\|python3\|udp_sender\|tcp_sender\|publisher' 2>/dev/null || true"
-    docker exec ntt_listener bash -c "pkill -f 'ros2\|python3\|udp_receiver\|tcp_receiver\|verify' 2>/dev/null || true"
+    kill_all_in ntt_talker
+    kill_all_in ntt_listener
     # Remove any tc rules
     docker exec ntt_talker bash -c "tc qdisc del dev eth0 root 2>/dev/null || true"
     sleep 2
+    # Second pass — catch any stragglers
+    kill_all_in ntt_talker
+    kill_all_in ntt_listener
+    sleep 1
+    # Verify
+    local t=$(docker exec ntt_talker bash -c 'ps aux | grep -v "PID\|sleep\|grep" | wc -l' 2>/dev/null)
+    local l=$(docker exec ntt_listener bash -c 'ps aux | grep -v "PID\|sleep\|grep" | wc -l' 2>/dev/null)
+    echo "  Remaining processes — talker: $t, listener: $l"
 }
 
 # Helper: run a single scenario
@@ -71,7 +88,7 @@ run_scenario() {
             2>&1 | tee /results/${name}_receiver.log"
     fi
 
-    sleep 1
+    sleep 2
 
     # Start sender on talker
     local compress_param="false"
@@ -84,7 +101,7 @@ run_scenario() {
         if [ "$fec" = "yes" ]; then
             fec_val="0.5"  # 50% repair symbols
         fi
-        echo "  Starting UDP sender..."
+        echo "  Starting UDP sender (rate limited to 50 Hz)..."
         docker exec -d ntt_talker bash -c "source /ros2_ws/install/setup.bash && \
             ros2 run nimbro_topic_transport udp_sender --ros-args \
             -p destination_addr:=listener \
@@ -109,21 +126,23 @@ run_scenario() {
 
     sleep 2
 
-    # Start publishers on talker (200 noise + 1 main)
+    # Start publishers on talker (200 noise + 1 main @ 100Hz)
+    # Each scenario gets a fresh publisher so sequence numbers start at 1
     echo "  Starting publishers (200 noise + 1 main)..."
     docker exec -d ntt_talker bash -c "source /ros2_ws/install/setup.bash && \
         python3 /test/publisher_node.py \
         2>&1 | tee /results/${name}_publisher.log"
 
-    sleep 2
+    # Wait for publisher to connect to sender subscription
+    sleep 3
 
     # Start verification on listener
     echo "  Starting verification (${DURATION}s)..."
     docker exec ntt_listener bash -c "source /ros2_ws/install/setup.bash && \
-        timeout $((DURATION + 10)) python3 /test/verify_node.py $DURATION $name" \
+        timeout $((DURATION + 15)) python3 /test/verify_node.py $DURATION $name" \
         2>&1 || true
 
-    # Capture sender stats
+    # Capture sender stats from talker side
     echo "  Capturing sender stats..."
     timeout 4 docker exec ntt_talker bash -c "source /ros2_ws/install/setup.bash && \
         ros2 topic echo /network/sender_stats --once" \
@@ -136,13 +155,13 @@ run_scenario() {
 # Run all scenarios
 # ============================
 
-run_scenario "1_udp_baseline"      udp no  0 no
-run_scenario "2_tcp_baseline"      tcp no  0 no
-run_scenario "3_udp_compress"      udp yes 0 no
-run_scenario "4_tcp_compress"      tcp yes 0 no
-run_scenario "5_udp_loss2"         udp no  2 no
-run_scenario "6_udp_compress_loss2" udp yes 2 no
-run_scenario "7_udp_loss2_fec"     udp no  2 yes
+run_scenario "1_udp_baseline"           udp no  0 no
+run_scenario "2_tcp_baseline"           tcp no  0 no
+run_scenario "3_udp_compress"           udp yes 0 no
+run_scenario "4_tcp_compress"           tcp yes 0 no
+run_scenario "5_udp_loss2"              udp no  2 no
+run_scenario "6_udp_compress_loss2"     udp yes 2 no
+run_scenario "7_udp_loss2_fec"          udp no  2 yes
 run_scenario "8_udp_compress_loss2_fec" udp yes 2 yes
 
 cleanup
@@ -157,7 +176,7 @@ docker exec ntt_listener bash -c "source /ros2_ws/install/setup.bash && \
     python3 /test/generate_report.py" || true
 
 echo ""
-echo "=== Report saved to $RESULTS_DIR/report.md ==="
+echo "=== Report ==="
 cat "$RESULTS_DIR/report.md" 2>/dev/null || echo "(report generation failed)"
 
 echo ""
