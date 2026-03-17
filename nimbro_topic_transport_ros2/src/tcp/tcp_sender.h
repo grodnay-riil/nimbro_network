@@ -1,5 +1,10 @@
+// Copyright (c) 2015, University of Bonn, Autonomous Intelligent Systems.
+// Copyright (c) 2026, Skana Robotics LTD.
+// All rights reserved. BSD 3-Clause License — see LICENSE file.
+//
 // TCP sender (ROS2)
-// Author: Max Schwarz <max.schwarz@uni-bonn.de>
+// Original author: Max Schwarz <max.schwarz@uni-bonn.de>
+// ROS2 port: Guy Rodnay, Skana Robotics LTD <grodnay@skanarobotics.com>
 
 #ifndef TCP_SENDER_H
 #define TCP_SENDER_H

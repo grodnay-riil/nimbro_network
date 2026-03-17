@@ -1,3 +1,7 @@
+// Copyright (c) 2015, University of Bonn, Autonomous Intelligent Systems.
+// Copyright (c) 2026, Skana Robotics LTD.
+// All rights reserved. BSD 3-Clause License — see LICENSE file.
+//
 // Little-Endian value
 // Author: Max Schwarz <max.schwarz@uni-bonn.de>
 

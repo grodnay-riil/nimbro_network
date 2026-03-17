@@ -1,5 +1,10 @@
+// Copyright (c) 2015, University of Bonn, Autonomous Intelligent Systems.
+// Copyright (c) 2026, Skana Robotics LTD.
+// All rights reserved. BSD 3-Clause License — see LICENSE file.
+//
 // Sends a single topic (ROS2)
-// Author: Max Schwarz <max.schwarz@uni-bonn.de>
+// Original author: Max Schwarz <max.schwarz@uni-bonn.de>
+// ROS2 port: Guy Rodnay, Skana Robotics LTD <grodnay@skanarobotics.com>
 
 #include "topic_sender.h"
 #include "udp_sender.h"

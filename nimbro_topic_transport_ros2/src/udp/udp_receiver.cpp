@@ -1,5 +1,10 @@
+// Copyright (c) 2015, University of Bonn, Autonomous Intelligent Systems.
+// Copyright (c) 2026, Skana Robotics LTD.
+// All rights reserved. BSD 3-Clause License — see LICENSE file.
+//
 // UDP receiver node (ROS2)
-// Author: Max Schwarz <max.schwarz@uni-bonn.de>
+// Original author: Max Schwarz <max.schwarz@uni-bonn.de>
+// ROS2 port: Guy Rodnay, Skana Robotics LTD <grodnay@skanarobotics.com>
 
 #include "udp_receiver.h"
 #include "udp_packet.h"
@@ -23,6 +28,10 @@ UDPReceiver::UDPReceiver()
  , m_missingPacketsInStatsInterval(0)
  , m_remoteAddrLen(0)
 {
+	RCLCPP_INFO(this->get_logger(), "nimbro_topic_transport v2.0.0 — UDP receiver");
+	RCLCPP_INFO(this->get_logger(), "Based on nimbro_network by Max Schwarz, University of Bonn");
+	RCLCPP_INFO(this->get_logger(), "ROS2 port by Guy Rodnay, Skana Robotics LTD");
+
 	this->declare_parameter<int>("port", 5050);
 	this->declare_parameter<bool>("drop_repeated_msgs", true);
 	this->declare_parameter<bool>("warn_drop_incomplete", true);
@@ -91,6 +100,10 @@ UDPReceiver::UDPReceiver()
 	);
 
 	m_topicPrefix = this->get_parameter("topic_prefix").as_string();
+
+	RCLCPP_INFO(this->get_logger(), "Configuration: port=%d, fec=%s, keep_compressed=%s, topic_prefix='%s'",
+		port, m_fec ? "true" : "false", m_keepCompressed ? "true" : "false",
+		m_topicPrefix.c_str());
 }
 
 UDPReceiver::~UDPReceiver()

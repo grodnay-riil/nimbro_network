@@ -1,5 +1,10 @@
+// Copyright (c) 2015, University of Bonn, Autonomous Intelligent Systems.
+// Copyright (c) 2026, Skana Robotics LTD.
+// All rights reserved. BSD 3-Clause License — see LICENSE file.
+//
 // TCP sender (ROS2)
-// Author: Max Schwarz <max.schwarz@uni-bonn.de>
+// Original author: Max Schwarz <max.schwarz@uni-bonn.de>
+// ROS2 port: Guy Rodnay, Skana Robotics LTD <grodnay@skanarobotics.com>
 
 #include "tcp_sender.h"
 
@@ -17,6 +22,10 @@ TCPSender::TCPSender()
  , m_fd(-1)
  , m_sentBytesInStatsInterval(0)
 {
+	RCLCPP_INFO(this->get_logger(), "nimbro_topic_transport v2.0.0 — TCP sender");
+	RCLCPP_INFO(this->get_logger(), "Based on nimbro_network by Max Schwarz, University of Bonn");
+	RCLCPP_INFO(this->get_logger(), "ROS2 port by Guy Rodnay, Skana Robotics LTD");
+
 	// Declare parameters
 	this->declare_parameter<std::string>("destination_addr", "");
 	this->declare_parameter<int>("destination_port", 0);
@@ -109,6 +118,9 @@ TCPSender::TCPSender()
 		std::chrono::milliseconds(static_cast<int>(m_statsIntervalSec * 1000)),
 		std::bind(&TCPSender::updateStats, this)
 	);
+
+	RCLCPP_INFO(this->get_logger(), "Configuration: destination=%s:%d, topics=%zu, source_port=%d",
+		addr.c_str(), port, topic_names.size(), m_sourcePort);
 }
 
 TCPSender::~TCPSender()

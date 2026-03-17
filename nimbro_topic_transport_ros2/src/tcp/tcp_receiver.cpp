@@ -1,5 +1,10 @@
+// Copyright (c) 2015, University of Bonn, Autonomous Intelligent Systems.
+// Copyright (c) 2026, Skana Robotics LTD.
+// All rights reserved. BSD 3-Clause License — see LICENSE file.
+//
 // TCP receiver (ROS2)
-// Author: Max Schwarz <max.schwarz@uni-bonn.de>
+// Original author: Max Schwarz <max.schwarz@uni-bonn.de>
+// ROS2 port: Guy Rodnay, Skana Robotics LTD <grodnay@skanarobotics.com>
 
 #include "tcp_receiver.h"
 
@@ -44,6 +49,10 @@ TCPReceiver::TCPReceiver()
  : Node("tcp_receiver")
  , m_receivedBytesInStatsInterval(0)
 {
+	RCLCPP_INFO(this->get_logger(), "nimbro_topic_transport v2.0.0 — TCP receiver");
+	RCLCPP_INFO(this->get_logger(), "Based on nimbro_network by Max Schwarz, University of Bonn");
+	RCLCPP_INFO(this->get_logger(), "ROS2 port by Guy Rodnay, Skana Robotics LTD");
+
 	this->declare_parameter<int>("port", 5050);
 	this->declare_parameter<bool>("keep_compressed", false);
 	this->declare_parameter<std::string>("label", "");
@@ -107,6 +116,9 @@ TCPReceiver::TCPReceiver()
 	);
 
 	m_topicPrefix = this->get_parameter("topic_prefix").as_string();
+
+	RCLCPP_INFO(this->get_logger(), "Configuration: port=%d, keep_compressed=%s, topic_prefix='%s'",
+		port, m_keepCompressed ? "true" : "false", m_topicPrefix.c_str());
 }
 
 TCPReceiver::~TCPReceiver()
