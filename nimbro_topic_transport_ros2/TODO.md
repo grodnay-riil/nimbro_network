@@ -9,3 +9,7 @@
 4. **Ignored publishers / message source filtering**: ROS2's `GenericSubscription` doesn't expose `MessageInfo` (publisher GID). To re-implement the ROS1 `ignored_publishers` feature, options are:
    - Use `get_publishers_info_by_topic()` to map GIDs to node names, then filter via `rmw_message_info_t.publisher_gid` in a typed subscription.
    - Or rely on automatic namespace prefixing (TODO #2) to avoid feedback loops entirely, making this feature unnecessary.
+
+5. **Runtime enable/disable per topic**: The ROS1 version used `config_server` to toggle individual topics on/off at runtime without restarting the node. ROS2 equivalent: use dynamic parameter callbacks (`add_on_set_parameters_callback`) with a `topic_enable` parameter array, or expose a service per topic.
+
+6. **Action proxy**: Forward ROS2 actions (goal/result/feedback) over nimbro. See detailed notes below.
