@@ -1,0 +1,49 @@
+services:
+  talker:
+    build:
+      context: ..
+      dockerfile: test/Dockerfile.test
+    image: ntt_test:latest
+    hostname: talker
+    container_name: ntt_talker
+    networks:
+      ntt_net:
+        ipv4_address: 172.28.0.10
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./:/test:ro
+      - /tmp/ntt_results:/results
+    environment:
+      - ROS_DOMAIN_ID=1
+    stdin_open: true
+    tty: true
+    command: sleep infinity
+
+  listener:
+    build:
+      context: ..
+      dockerfile: test/Dockerfile.test
+    image: ntt_test:latest
+    hostname: listener
+    container_name: ntt_listener
+    networks:
+      ntt_net:
+        ipv4_address: 172.28.0.20
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./:/test:ro
+      - /tmp/ntt_results:/results
+    environment:
+      - ROS_DOMAIN_ID=2
+    stdin_open: true
+    tty: true
+    command: sleep infinity
+
+networks:
+  ntt_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24

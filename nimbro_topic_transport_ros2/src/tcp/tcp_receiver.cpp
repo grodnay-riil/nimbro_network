@@ -332,7 +332,7 @@ void TCPReceiver::ClientHandler::run()
 					(m_topicPrefix + topic).c_str(), type.c_str());
 
 				auto pub = m_node->create_generic_publisher(
-					m_topicPrefix + topic, type, rclcpp::SensorDataQoS());
+					m_topicPrefix + topic, type, rclcpp::QoS(10));
 
 				m_pub[topic] = pub;
 				it = m_pub.find(topic);

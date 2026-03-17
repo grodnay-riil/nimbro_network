@@ -157,7 +157,7 @@ void UDPReceiver::handleFinishedMessage(Message* msg, HeaderType* header)
 			topic->publisher = this->create_generic_publisher(
 				m_topicPrefix + header->topic_name,
 				header->topic_type,
-				rclcpp::SensorDataQoS());
+				rclcpp::QoS(10));
 			topic->compressed_publisher.reset();
 		}
 
