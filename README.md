@@ -1,7 +1,8 @@
 
-nimbro_network - ROS transport for high-latency, low-quality networks
+nimbro_network ***Reborn*** - ROS***2*** transport for high-latency, low-quality networks
 =====================================================================
-
+* Only Topic Transport have been ported till now
+* 
 `nimbro_network` is a set of [ROS][1] packages for transporting ROS topics
 and services over network. It was developed for the
 [DLR SpaceBotCup competition][2] and performed very well during the competition.
